@@ -29,6 +29,7 @@ python3 detect.py \
 import argparse
 import cv2
 import os
+import time
 
 from pycoral.adapters.common import input_size
 from pycoral.adapters.detect import get_objects
@@ -48,7 +49,7 @@ def main():
     parser.add_argument('--top_k', type=int, default=3,
                         help='number of categories with highest score to display')
     parser.add_argument('--camera_idx', type=int, help='Index of which video source to use. ', default = 0)
-    parser.add_argument('--threshold', type=float, default=0.1,
+    parser.add_argument('--threshold', type=float, default=0.18,
                         help='classifier score threshold')
     args = parser.parse_args()
 
@@ -58,9 +59,34 @@ def main():
     labels = read_label_file(args.labels)
     inference_size = input_size(interpreter)
 
-    cap = cv2.VideoCapture(args.camera_idx)
+    #cap = cv2.VideoCapture('video_for_coral_practice.mp4') ##from file
+    cap = cv2.VideoCapture(args.camera_idx) ##from camera
 
-    while cap.isOpened():
+    
+    if cap.isOpened(): 
+        ## get vcap property 
+        ##width  = vcap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)   # float `width`
+        ##height = vcap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)  # float `height`
+        # or
+        ##width  = vcap.get(3)  # float `width`
+        ##height = vcap.get(4)  # float `height`
+        ##print('cv2.CAP_PROP_FRAME_WIDTH :', cv2.CAP_PROP_FRAME_WIDTH)   # 3
+        ##print('cv2.CAP_PROP_FRAME_HEIGHT:', cv2.CAP_PROP_FRAME_HEIGHT)  # 4
+        ##print('cv2.CAP_PROP_FPS         :', cv2.CAP_PROP_FPS)           # 5
+        ##print('cv2.CAP_PROP_FRAME_COUNT :', cv2.CAP_PROP_FRAME_COUNT)   # 7
+
+        ##
+        frame_width = round(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) # int `width`
+        frame_height = round(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) # int `height`
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        ##
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    vout = cv2.VideoWriter('camera_to_file.mp4',fourcc,fps,(frame_width, frame_height))
+
+    timeout = 5 ##seconds
+    timeout_start = time.time()
+    while cap.isOpened() and time.time() < timeout_start+timeout:
         ret, frame = cap.read()
         if not ret:
             break
@@ -72,7 +98,8 @@ def main():
         objs = get_objects(interpreter, args.threshold)[:args.top_k]
         cv2_im = append_objs_to_img(cv2_im, inference_size, objs, labels)
 
-        cv2.imshow('frame', cv2_im)
+        #cv2.imshow('frame', cv2_im) ## output: camera
+        vout.write(cv2_im) ## output: file(vout)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
@@ -82,17 +109,42 @@ def main():
 def append_objs_to_img(cv2_im, inference_size, objs, labels):
     height, width, channels = cv2_im.shape
     scale_x, scale_y = width / inference_size[0], height / inference_size[1]
-    for obj in objs:
+    
+    for obj in objs:        
         bbox = obj.bbox.scale(scale_x, scale_y)
         x0, y0 = int(bbox.xmin), int(bbox.ymin)
         x1, y1 = int(bbox.xmax), int(bbox.ymax)
-
         percent = int(100 * obj.score)
-        label = '{}% {}'.format(percent, labels.get(obj.id, obj.id))
 
+        label = '{}% {}'.format(percent, labels.get(obj.id, obj.id))
         cv2_im = cv2.rectangle(cv2_im, (x0, y0), (x1, y1), (0, 255, 0), 2)
         cv2_im = cv2.putText(cv2_im, label, (x0, y0+30),
                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
+
+    return cv2_im
+
+def append_objs_to_img_higset_score(cv2_im, inference_size, objs, labels):
+    height, width, channels = cv2_im.shape
+    scale_x, scale_y = width / inference_size[0], height / inference_size[1]
+    
+    sorted_objs = sorted(objs, key = lambda obj: obj.score, reverse=True)
+    #Added#
+    for idx, obj in enumerate(sorted_objs):        
+        bbox = obj.bbox.scale(scale_x, scale_y)
+        x0, y0 = int(bbox.xmin), int(bbox.ymin)
+        x1, y1 = int(bbox.xmax), int(bbox.ymax)
+        percent = int(100 * obj.score)
+
+        label = 'face_score : {}%'.format(percent)
+
+        if idx == 0: ##higest score
+            cv2_im = cv2.rectangle(cv2_im, (x0, y0), (x1, y1), (0, 255, 0), 2)
+        else:       ##other masking
+            cv2_im = cv2.rectangle(cv2_im, (x0, y0), (x1, y1), (0, 255, 0), -1) 
+        ## All for percent label
+        cv2_im = cv2.putText(cv2_im, label, (x0, y0-20),
+                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
+
     return cv2_im
 
 if __name__ == '__main__':
