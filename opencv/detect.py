@@ -82,9 +82,9 @@ def main():
         ##
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    vout = cv2.VideoWriter('camera_to_file.mp4',fourcc,fps,(frame_width, frame_height))
+    vout = cv2.VideoWriter('detect_output.mp4',fourcc,fps,(frame_width, frame_height))
 
-    timeout = 5 ##seconds
+    timeout = 7 ##seconds
     timeout_start = time.time()
     while cap.isOpened() and time.time() < timeout_start+timeout:
         ret, frame = cap.read()
