@@ -51,6 +51,8 @@ def main():
     parser.add_argument('--camera_idx', type=int, help='Index of which video source to use. ', default = 0)
     parser.add_argument('--threshold', type=float, default=0.18,
                         help='classifier score threshold')
+    #Added to detect from a video file
+    parser.add_argument("--video", type=str, default="", help="path to the video to run object detection")
     args = parser.parse_args()
 
     print('Loading {} with {} labels.'.format(args.model, args.labels))
@@ -59,8 +61,14 @@ def main():
     labels = read_label_file(args.labels)
     inference_size = input_size(interpreter)
 
+    if args.video:
+        try:
+            cap = cv2.VideoCapture(args.video)
+        except FileNotFoundError as e:
+            print(f"{args.video} not found")
+    else:
     #cap = cv2.VideoCapture('video_for_coral_practice.mp4') ##from file
-    cap = cv2.VideoCapture(args.camera_idx) ##from camera
+        cap = cv2.VideoCapture(args.camera_idx) ##from camera
 
     
     if cap.isOpened(): 
